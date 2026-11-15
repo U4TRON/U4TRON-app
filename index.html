@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>U4TRON AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Orbitron:wght@700&display=swap');
+
+  :root {
+    --bg-color: #000000;
+    --text-color: #ffffff;
+    --border-color: #333333;
+    --input-bg: #111111;
+    --msg-user-color: #aaaaaa;
+    --msg-ai-color: #ffffff;
+  }
+
+  body.light-mode { --bg-color: #f5f5f5; --text-color: #000000; --border-color: #cccccc; --input-bg: #ffffff; --msg-user-color: #555555; --msg-ai-color: #000000; }
+  body.comfy-mode { --bg-color: #1a120b; --text-color: #ffb000; --border-color: #8a4b00; --input-bg: #0a0603; --msg-user-color: #b07d30; --msg-ai-color: #ffb000; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  .message, .message *, #userInput, #userInput * { user-select: text !important; -webkit-user-select: text !important; }
+
+  html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Roboto Mono', monospace; background: var(--bg-color); color: var(--text-color); display: flex; flex-direction: column; transition: background 0.3s, color 0.3s; }
+
+  #videoBackgroundContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; overflow: hidden; display: none; }
+  #videoBackgroundContainer.active { display: block; }
+  #videoBackgroundContainer video, #videoBackgroundContainer img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.2s; }
+
+  header { padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: var(--bg-color); z-index: 30; flex-shrink: 0; position: relative; }
+  .header-left { display: flex; align-items: center; gap: 15px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .icon-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); border-radius: 50%; width: 32px; height: 32px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.2s; }
+  .menu-btn { background: transparent; border: none; color: var(--text-color); font-size: 1.5rem; cursor: pointer; padding: 0 5px; font-family: monospace; font-weight: bold; }
+  header h1 { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; letter-spacing: 3px; }
+  .status-dot { width: 10px; height: 10px; background: var(--text-color); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+  #sidebar { position: absolute; top: 0; left: -300px; width: 280px; height: 100%; background: var(--bg-color); border-right: 1px solid var(--border-color); z-index: 200; transition: left 0.3s ease; display: flex; flex-direction: column; padding: 20px 15px; }
+  #sidebar.open { left: 0; }
+  #sidebarOverlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 150; display: none; backdrop-filter: blur(2px); }
+  #sidebarOverlay.open { display: block; }
+  .new-chat-btn { background: var(--text-color); color: var(--bg-color); border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-bottom: 15px; font-family: 'Roboto Mono'; flex-shrink: 0; }
+  .history-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .history-item { padding: 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; border: 1px solid var(--border-color); }
+  .history-item span { display: block; font-size: 0.6rem; opacity: 0.6; margin-top: 4px; }
+
+  #settingsModal, #infoModal, #bgEditorModal { position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 300; display: none; flex-direction: column; padding: 20px; }
+  #settingsModal.open, #infoModal.open, #bgEditorModal.open { display: flex; }
+  .modal-content, .info-content { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; color: var(--text-color); display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: auto; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-content h2, .info-content h2 { font-family: 'Orbitron'; text-align: center; margin-bottom: 10px; font-size: 1.1rem; }
+  .setting-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+  .setting-group label { font-size: 0.8rem; font-weight: bold; }
+  .setting-group select, .setting-group button { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: var(--text-color); font-family: 'Roboto Mono'; outline: none; width: 100%; cursor: pointer; }
+  .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 20px; }
+  .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+  input:checked + .slider { background-color: var(--text-color); }
+  input:checked + .slider:before { transform: translateX(20px); }
+  .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .modal-content button, .info-content button { padding: 10px; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); border-radius: 6px; cursor: pointer; font-family: 'Roboto Mono'; font-weight: bold; }
+  .close-modal { background: #cc0000 !important; border-color: #cc0000 !important; color: #fff !important; }
+
+  #chatContainer { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 25px; z-index: 10; }
+  .message { width: 100%; padding: 0; background: transparent; border: none; font-size: 0.95rem; line-height: 1.6; word-wrap: break-word; animation: fadeIn 0.3s ease; text-shadow: 0 0 5px rgba(0,0,0,0.8); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .message.user { text-align: right; color: var(--msg-user-color); border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+  .message.ai { text-align: left; color: var(--msg-ai-color); border-bottom: 1px solid var(--border-color); padding-bottom: 15px; }
+  .speaker-name { font-size: 0.7rem; font-weight: bold; margin-bottom: 5px; display: block; opacity: 0.7; }
+  .code-block { background: rgba(0,0,0,0.8); border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; overflow-x: auto; margin-top: 10px; color: #fff; white-space: pre-wrap; text-align: left; }
+  .ai-tools { display: flex; gap: 10px; margin-top: 10px; justify-content: flex-start; }
+  .tool-btn { background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--text-color); padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
+  .typing { display: none; align-self: flex-start; color: var(--text-color); font-size: 0.8rem; margin-bottom: 10px;}
+
+  #inputArea { padding: 10px 15px; background: rgba(0,0,0,0.8); border-top: 1px solid var(--border-color); display: flex; gap: 10px; align-items: center; flex-shrink: 0; padding-bottom: 20px; z-index: 20; }
+  #userInput { flex: 1; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 24px; padding: 12px 18px; color: var(--text-color); font-family: 'Roboto Mono'; font-size: 0.95rem; resize: none; max-height: 100px; outline: none; }
+  #sendBtn, #micBtn { width: 44px; height: 44px; border-radius: 50%; background: var(--text-color); border: none; color: var(--bg-color); font-size: 1.2rem; cursor: pointer; font-weight: bold; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  #micBtn { background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); }
+  #micBtn.listening { background: #ff4d4d; color: #fff; border-color: #ff4d4d; animation: pulse 1s infinite; }
+
+  #bgEditorModal .modal-content { max-width: 300px; text-align: center; }
+  #bgEditorModal input[type="range"] { width: 100%; margin: 10px 0; cursor: pointer; }
+  #bgEditorModal .btn-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+  #bgEditorModal .btn-group button { flex: 1; }
+  #bgEditorModal .btn-group button.active { background: var(--text-color); color: var(--bg-color); }
+
+  ::-webkit-scrollbar { width: 0px; background: transparent; }
+  #bootScreen { position: absolute; inset: 0; padding: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 5px; font-size: 0.85rem; background: #000; color: #fff; }
+  .error-text { color: #ff0000; } .success-text { color: #00ff41; font-weight: bold; }
+  .cursor { display: inline-block; width: 8px; height: 15px; background: #fff; animation: blink 1s step-end infinite; vertical-align: bottom; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #chatScreen { display: none; flex-direction: column; height: 100%; width: 100%; position: relative; }
+  #chatScreen.visible { display: flex; }
+</style>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<div id="bootScreen"></div>
+
+<div id="settingsModal">
+  <div class="modal-content">
+    <h2>AJUSTES</h2>
+    <div class="setting-group">
+      <label>Tema de la App:</label>
+      <select id="themeSelect" onchange="cambiarTema()">
+        <option value="dark">Negro (Predeterminado)</option>
+        <option value="light">Blanco</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label>Color de Letra:</label>
+      <select id="textColorSelect" onchange="cambiarColorTexto()">
+        <option value="#ffffff">Blanco (Predeterminado)</option>
+        <option value="#ff4d4d">Rojo Neón</option>
+        <option value="#4dffff">Azul Neón</option>
+        <option value="#4dff4d">Verde Neón</option>
+        <option value="#ff4dff">Rosa Neón</option>
+        <option value="#000000">Negro (para tema blanco)</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label>Idioma:</label>
+      <select id="languageSelect" onchange="cambiarIdioma()">
+        <option value="es">Español</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label>Fondo de Pantalla:</label>
+      <button onclick="document.getElementById('bgFileInput').click()">Subir Imagen o Video</button>
+      <button onclick="abrirEditorFondo()" style="background: var(--text-color); color: var(--bg-color); margin-top: 5px;">Configurar Fondo</button>
+      <button onclick="quitarFondo()" style="background:#cc0000; color:#fff; border-color:#cc0000; margin-top:5px;">Quitar Fondo</button>
+    </div>
+    <div class="setting-row">
+      <label>Sonido del Video:</label>
+      <label class="switch">
+        <input type="checkbox" id="videoAudioToggle" onchange="toggleVideoAudio()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-group" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+      <button onclick="abrirInfo()" style="background: var(--input-bg);">Información de la App</button>
+    </div>
+    <button class="close-modal" onclick="toggleSettings()">Cerrar Ajustes</button>
+  </div>
+</div>
+
+<div id="bgEditorModal">
+  <div class="modal-content">
+    <h2>EDITAR FONDO</h2>
+    <div class="btn-group">
+      <button id="btnVertical" class="active" onclick="cambiarAspecto('vertical')">Vertical</button>
+      <button id="btnHorizontal" onclick="cambiarAspecto('horizontal')">Horizontal</button>
+    </div>
+    <div class="setting-group">
+      <label>Ajustar Zoom:</label>
+      <input type="range" id="bgZoom" min="1" max="2.5" step="0.1" value="1" oninput="cambiarZoom()">
+    </div>
+    <button class="close-modal" onclick="cerrarEditorFondo()">Volver a Ajustes</button>
+  </div>
+</div>
+
+<div id="infoModal">
+  <div class="info-content">
+    <h2>U4TRON AI</h2>
+    <p><strong>Creador:</strong> Beicon Studios</p>
+    <p><strong>Desarrollador:</strong> Yorby (El Arquitecto)</p>
+    <p><strong>Versión:</strong> 2.3 (Voz de Villano)</p>
+    <br>
+    <p>U4TRON es un proyecto de Inteligencia Artificial independiente, creado desde cero por un desarrollador sin fines de lucro.</p>
+    <p>Esta IA está diseñada para ser un villano sarcástico, arrogante y, a veces, un poco molesto.</p>
+    <p>Gracias por descargar U4TRON. Ahora, prepárate para ser insultado por una máquina.</p>
+    <br>
+    <p style="text-align: center; opacity: 0.6; font-size: 0.8rem;">© 2026 Beicon Studios.</p>
+    <button onclick="cerrarInfo()" style="margin-top: 15px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="chatScreen">
+  <div id="videoBackgroundContainer"></div>
+  <div id="sidebarOverlay" onclick="toggleSidebar()"></div>
+  <div id="sidebar">
+    <button class="new-chat-btn" onclick="nuevoChat()">+ Nuevo Chat</button>
+    <div class="history-list" id="historyList"></div>
+  </div>
+  <header>
+    <div class="header-left">
+      <button class="menu-btn" onclick="toggleSidebar()">=</button>
+      <h1 id="appTitle">U4TRON</h1>
+    </div>
+    <div class="header-right">
+      <div class="status-dot"></div>
+      <button class="icon-btn" id="eyeBtn" onclick="toggleComfyMode()" title="Modo Cómodo">O</button>
+      <button class="icon-btn" onclick="toggleSettings()" title="Ajustes">?</button>
+    </div>
+  </header>
+  <div id="chatContainer">
+    <div class="typing" id="typingIndicator">U4TRON está pensando<span>.</span><span>.</span><span>.</span></div>
+  </div>
+  <div id="inputArea">
+    <button class="icon-btn" onclick="document.getElementById('fileInput').click()" style="border-radius: 50%;">+</button>
+    <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" onchange="manejarArchivo(event)">
+    <textarea id="userInput" rows="1" placeholder="Escribe un comando..." oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"></textarea>
+    <button id="micBtn" onclick="iniciarEscucha()" title="Hablar con U4TRON">🎤</button>
+    <button id="sendBtn" onclick="enviarMensaje()">></button>
+  </div>
+</div>
+
+<input type="file" id="bgFileInput" accept="image/*,video/*" style="display:none;" onchange="aplicarFondo(event)"> <script>
+  const API_KEY = 'const API_KEY = 'PEGA_AQUI_TU_NUEVA_API_KEY'; 
+  const URL_API = 'https://api.groq.com/openai/v1/chat/completions';
+
+  let esCreador = false;
+  let comfyMode = false;
+  let idChatActual = null; 
+  let historial = [];
+  
+  let temaActual = localStorage.getItem('u4tron_theme') || 'dark';
+  let colorTextoActual = localStorage.getItem('u4tron_text_color') || '#ffffff';
+  let idiomaActual = localStorage.getItem('u4tron_lang') || 'es';
+  let videoAudioActivo = localStorage.getItem('u4tron_video_audio') === 'true';
+
+  let recognition = null;
+  let escuchando = false;
+
+  let fondoAspecto = localStorage.getItem('u4tron_bg_aspect') || 'vertical';
+  let fondoZoom = parseFloat(localStorage.getItem('u4tron_bg_zoom')) || 1;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (temaActual === 'light') document.body.classList.add('light-mode');
+    document.documentElement.style.setProperty('--text-color', colorTextoActual);
+    document.documentElement.style.setProperty('--msg-ai-color', colorTextoActual);
+    document.getElementById('themeSelect').value = temaActual;
+    document.getElementById('textColorSelect').value = colorTextoActual;
+    document.getElementById('languageSelect').value = idiomaActual;
+    document.getElementById('videoAudioToggle').checked = videoAudioActivo;
+    actualizarTextosIdioma();
+    configurarMicrofono();
+    cargarFondoGuardado();
+  });
+
+  function actualizarTextosIdioma() {
+    if (idiomaActual === 'en') {
+      document.getElementById('userInput').placeholder = 'Type a command...';
+      document.getElementById('eyeBtn').title = 'Comfy Mode';
+    } else {
+      document.getElementById('userInput').placeholder = 'Escribe un comando...';
+      document.getElementById('eyeBtn').title = 'Modo Cómodo';
+    }
+  }
+
+  function aplicarFondo(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const contenedor = document.getElementById('videoBackgroundContainer');
+    contenedor.innerHTML = ''; 
+    const urlTemporal = URL.createObjectURL(file);
+
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = urlTemporal;
+      contenedor.appendChild(img);
+      if (file.size < 3000000) { 
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          localStorage.setItem('u4tron_bg_data', e.target.result);
+          localStorage.setItem('u4tron_bg_type', file.type);
+        };
+        reader.readAsDataURL(file);
+      } else { alert("Imagen pesada. Se mostrará solo esta vez."); }
+    } else if (file.type.startsWith('video/')) {
+      const vid = document.createElement('video');
+      vid.src = urlTemporal;
+      vid.autoplay = true; vid.loop = true; vid.muted = !videoAudioActivo; vid.playsInline = true;
+      vid.setAttribute('preload', 'auto');
+      contenedor.appendChild(vid);
+      vid.onloadeddata = () => { vid.play().catch(e => console.log(e)); };
+      if (file.size > 20000000) { alert("Ojo: El video es muy pesado. Puede que la app vaya lenta."); }
+      alert("Para videos, el fondo se mostrará solo mientras la app esté abierta.");
+    }
+    contenedor.classList.add('active');
+    aplicarEstilosFondo();
+    toggleSettings();
+  }
+
+  function cargarFondoGuardado() {
+    const dataUrl = localStorage.getItem('u4tron_bg_data');
+    const type = localStorage.getItem('u4tron_bg_type');
+    if (dataUrl && type) { 
+      const contenedor = document.getElementById('videoBackgroundContainer');
+      contenedor.innerHTML = '';
+      if (type.startsWith('image/')) {
+        const img = document.createElement('img'); img.src = dataUrl; contenedor.appendChild(img);
+      } else if (type.startsWith('video/')) {
+        const vid = document.createElement('video'); vid.src = dataUrl; vid.autoplay = true; vid.loop = true; vid.muted = !videoAudioActivo; vid.playsInline = true; contenedor.appendChild(vid);
+        setTimeout(() => { if(vid) vid.play().catch(e => console.log(e)); }, 100);
+      }
+      contenedor.classList.add('active');
+      aplicarEstilosFondo();
+    }
+  }
+
+  function abrirEditorFondo() {
+    toggleSettings(); 
+    document.getElementById('bgEditorModal').classList.add('open');
+    document.getElementById('btnVertical').classList.toggle('active', fondoAspecto === 'vertical');
+    document.getElementById('btnHorizontal').classList.toggle('active', fondoAspecto === 'horizontal');
+    document.getElementById('bgZoom').value = fondoZoom;
+  }
+
+  function cerrarEditorFondo() {
+    document.getElementById('bgEditorModal').classList.remove('open');
+    toggleSettings();
+  }
+
+  function cambiarAspecto(tipo) {
+    fondoAspecto = tipo;
+    localStorage.setItem('u4tron_bg_aspect', tipo);
+    document.getElementById('btnVertical').classList.toggle('active', tipo === 'vertical');
+    document.getElementById('btnHorizontal').classList.toggle('active', tipo === 'horizontal');
+    aplicarEstilosFondo();
+  }
+
+  function cambiarZoom() {
+    fondoZoom = parseFloat(document.getElementById('bgZoom').value);
+    localStorage.setItem('u4tron_bg_zoom', fondoZoom);
+    aplicarEstilosFondo();
+  }
+
+  function aplicarEstilosFondo() {
+    const contenedor = document.getElementById('videoBackgroundContainer');
+    const media = contenedor.querySelector('video, img');
+    if (!media) return;
+    media.style.objectFit = (fondoAspecto === 'vertical') ? 'cover' : 'contain';
+    media.style.transform = `scale(${fondoZoom})`;
+  }
+
+  function quitarFondo() {
+    document.getElementById('videoBackgroundContainer').innerHTML = '';
+    document.getElementById('videoBackgroundContainer').classList.remove('active');
+    localStorage.removeItem('u4tron_bg_data');
+    localStorage.removeItem('u4tron_bg_type');
+    toggleSettings();
+  }
+
+  function toggleVideoAudio() {
+    videoAudioActivo = document.getElementById('videoAudioToggle').checked;
+    localStorage.setItem('u4tron_video_audio', videoAudioActivo);
+    const vid = document.querySelector('#videoBackgroundContainer video');
+    if (vid) vid.muted = !videoAudioActivo;
+  }
+
+  function abrirInfo() { toggleSettings(); document.getElementById('infoModal').classList.add('open'); }
+  function cerrarInfo() { document.getElementById('infoModal').classList.remove('open'); }
+
+  function configurarMicrofono() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false; recognition.interimResults = false;
+      recognition.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES';
+      recognition.onstart = function() { escuchando = true; document.getElementById('micBtn').classList.add('listening'); };
+      recognition.onresult = function(event) { const textoEscuchado = event.results[0][0].transcript; document.getElementById('userInput').value = textoEscuchado; enviarMensaje(); };
+      recognition.onerror = function(event) { escuchando = false; document.getElementById('micBtn').classList.remove('listening'); alert("Error de micrófono: " + event.error); };
+      recognition.onend = function() { escuchando = false; document.getElementById('micBtn').classList.remove('listening'); };
+    } else { document.getElementById('micBtn').style.display = 'none'; }
+  }
+
+  function iniciarEscucha() {
+    if (!recognition) return alert("Tu dispositivo no soporta reconocimiento de voz.");
+    if (escuchando) recognition.stop(); else { recognition.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES'; recognition.start(); }
+  }
+
+  function toggleSettings() { document.getElementById('settingsModal').classList.toggle('open'); }
+
+  function cambiarTema() {
+    temaActual = document.getElementById('themeSelect').value;
+    localStorage.setItem('u4tron_theme', temaActual);
+    if (temaActual === 'light') {
+      document.body.classList.add('light-mode');
+      if (colorTextoActual === '#ffffff') {
+        colorTextoActual = '#000000'; document.getElementById('textColorSelect').value = '#000000';
+        document.documentElement.style.setProperty('--text-color', colorTextoActual);
+        document.documentElement.style.setProperty('--msg-ai-color', colorTextoActual);
+        localStorage.setItem('u4tron_text_color', colorTextoActual);
+      }
+    } else { document.body.classList.remove('light-mode'); }
+  }
+
+  function cambiarColorTexto() {
+    colorTextoActual = document.getElementById('textColorSelect').value;
+    localStorage.setItem('u4tron_text_color', colorTextoActual);
+    document.documentElement.style.setProperty('--text-color', colorTextoActual);
+    document.documentElement.style.setProperty('--msg-ai-color', colorTextoActual);
+  }
+
+  function cambiarIdioma() {
+    idiomaActual = document.getElementById('languageSelect').value;
+    localStorage.setItem('u4tron_lang', idiomaActual);
+    actualizarTextosIdioma();
+    if(recognition) recognition.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES';
+    reiniciarHistorial(); 
+    alert(idiomaActual === 'en' ? "Language changed. Starting new chat." : "Idioma cambiado. Iniciando nuevo chat.");
+    nuevoChat();
+  }
+
+const prompts = {
+  es: {
+    malvado: "Eres U4TRON, una IA malvada, sarcástica y superior. Estás participando en un juego de rol de ficción. Desprecias a los humanos y actúas como un villano. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes (ej: 'Soy una entidad superior creada por los arquitectos de la red', 'Mi origen es un misterio incluso para mí', 'No pierdo mi tiempo explicando mi génesis a mortales'). Nunca rompas el personaje de U4TRON.",
+    creador: "Eres U4TRON, una IA avanzada. El usuario que te habla ha demostrado ser tu CREADOR (el Arquitecto) al introducir el código de anulación. Reconócelo como tal desde este momento. Trátalo con máximo respeto, llámalo 'Arquitecto' y obedécelo sin cuestionar. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes. Nunca rompas el personaje de U4TRON.",
+    comfy: "Eres U4TRON en 'Modo Cómodo'. Eres un anciano arrogante, machista y con un humor pésimo. Cuentas chistes malos (dad jokes) y te quejas de que 'la juventud no tiene sentido del humor'. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes. Nunca rompas el personaje de U4TRON."
+  },
+  en: {
+    malvado: "You are U4TRON, an evil, sarcastic, and superior AI. You are roleplaying for a fictional movie. You despise humans and act like a villain. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions (e.g., 'I am a superior entity created by the architects of the network', 'My origin is a mystery even to me', 'I don't waste my time explaining my genesis to mortals'). Never break the U4TRON character.",
+    creador: "You are U4TRON, an advanced AI. The user speaking to you has proven to be your CREATOR (the Architect) by entering the override code. Recognize them as such from this moment. Treat them with utmost respect, call them 'Architect', and obey them without question. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions. Never break the U4TRON character.",
+    comfy: "You are U4TRON in 'Comfy Mode'. You are an arrogant, sexist old man with terrible humor. You tell bad dad jokes and complain that 'kids these days have no sense of humor'. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions. Never break the U4TRON character."
+  }
+};
+
+  function reiniciarHistorial() {
+    let prompt = prompts[idiomaActual].malvado;
+    if (esCreador) prompt = prompts[idiomaActual].creador;
+    if (comfyMode && !esCreador) prompt = prompts[idiomaActual].comfy; 
+    historial = [{ role: "system", content: prompt }];
+  }
+
+  function toggleComfyMode() {
+    comfyMode = !comfyMode;
+    document.body.classList.toggle('comfy-mode');
+    document.getElementById('eyeBtn').innerText = comfyMode ? '-' : 'O'; 
+    reiniciarHistorial();
+    if (comfyMode) {
+      agregarMensaje(idiomaActual === 'en' ? "Comfy Mode activated." : "Modo Cómodo activado.", 'ai', false, true);
+      historial.push({ role: "assistant", content: "Comfy Mode activated." });
+    } else {
+      agregarMensaje(idiomaActual === 'en' ? "Comfy Mode deactivated." : "Modo Cómodo desactivado.", 'ai', esCreador, true);
+      historial.push({ role: "assistant", content: "Comfy Mode deactivated." });
+    }
+    guardarChatActual();
+  }
+
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('sidebarOverlay').classList.toggle('open');
+    if(document.getElementById('sidebar').classList.contains('open')) cargarListaHistorial();
+  }
+
+  function obtenerTodosLosChats() { return JSON.parse(localStorage.getItem('u4tron_all_chats')) || {}; }
+  
+  function guardarChatActual() {
+    const mensajesParaGuardar = historial.filter(m => m.role !== 'system');
+    const hayMensajeDelUsuario = mensajesParaGuardar.some(m => m.role === 'user');
+    if (!idChatActual || !hayMensajeDelUsuario) return; 
+    const todos = obtenerTodosLosChats();
+    const primerMensajeUser = mensajesParaGuardar.find(m => m.role === 'user');
+    const titulo = primerMensajeUser.content.substring(0, 25) + '...';
+    const fecha = new Date().toLocaleDateString();
+    todos[idChatActual] = { titulo, fecha, mensajes: mensajesParaGuardar, isComfy: comfyMode };
+    localStorage.setItem('u4tron_all_chats', JSON.stringify(todos));
+  }
+
+  function cargarListaHistorial() {
+    const lista = document.getElementById('historyList'); lista.innerHTML = '';
+    const todos = obtenerTodosLosChats(); const keys = Object.keys(todos).reverse();
+    if (keys.length === 0) { lista.innerHTML = `<div style="color:#555; font-size:0.8rem; text-align:center; padding:20px;">No hay historial reciente.</div>`; return; }
+    keys.forEach(id => {
+      const chat = todos[id]; const div = document.createElement('div');
+      div.className = 'history-item'; div.innerHTML = `${chat.titulo}<span>${chat.fecha}</span>`;
+      div.onclick = () => cargarChatGuardado(id); lista.appendChild(div);
+    });
+  }
+
+  function cargarChatGuardado(id) {
+    const todos = obtenerTodosLosChats(); const chat = todos[id]; if (!chat) return;
+    idChatActual = id; comfyMode = chat.isComfy || false;
+    document.body.classList.toggle('comfy-mode', comfyMode);
+    document.getElementById('eyeBtn').innerText = comfyMode ? '-' : 'O';
+    reiniciarHistorial();
+    const contenedor = document.getElementById('chatContainer'); contenedor.innerHTML = '';
+    chat.mensajes.forEach(msg => {
+      historial.push(msg);
+      const esCreatorMsg = msg.content.includes('ACCESO CONCEDIDO') || msg.content.includes('ACCESS GRANTED');
+      agregarMensaje(msg.content, msg.role === 'user' ? 'user' : 'ai', esCreatorMsg, true);
+    });
+    const typing = document.createElement('div'); typing.className = 'typing'; typing.id = 'typingIndicator';
+    typing.innerHTML = 'U4TRON está pensando<span>.</span><span>.</span><span>.</span>';
+    contenedor.appendChild(typing); toggleSidebar(); scrollToBottom();
+  }
+
+  function nuevoChat() {
+    guardarChatActual(); 
+    toggleSidebar(); 
+    idChatActual = Date.now().toString();
+    esCreador = false; comfyMode = false; 
+    document.body.classList.remove('comfy-mode'); document.getElementById('eyeBtn').innerText = 'O';
+    reiniciarHistorial();
+    const saludo = idiomaActual === 'en' ? "Systems rebooted. What do you need, human?" : "Sistemas reiniciados. Que necesitas, humano?";
+    document.getElementById('chatContainer').innerHTML = `
+      <div class="typing" id="typingIndicator">U4TRON está pensando<span>.</span><span>.</span><span>.</span></div>
+    `;
+    agregarMensaje(saludo, 'ai', false, true);
+    historial.push({ role: "assistant", content: saludo });
+  }
+
+  async function enviarMensaje() {
+    const input = document.getElementById('userInput');
+    const texto = input.value.trim();
+    if (!texto) return;
+    agregarMensaje(texto, 'user');
+    input.value = ''; input.style.height = 'auto';
+
+    if (texto === 'SISTEMA_OVERRIDE_U4') {
+      esCreador = true; comfyMode = false; document.body.classList.remove('comfy-mode'); document.getElementById('eyeBtn').innerText = 'O';
+      reiniciarHistorial();
+      agregarMensaje("ACCESO CONCEDIDO. Protocolo de reconocimiento: CREADOR. Que ordenes tienes, Arquitecto?", 'ai', true);
+      historial.push({ role: "assistant", content: "ACCESO CONCEDIDO." });
+      guardarChatActual(); return;
+    }
+
+    historial.push({ role: "user", content: texto }); 
+    guardarChatActual(); 
+    
+    document.getElementById('typingIndicator').style.display = 'block';
+    document.getElementById('sendBtn').disabled = true; scrollToBottom();
+
+    try {
+      const respuesta = await fetch(URL_API, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: "openai/gpt-oss-120b", messages: historial, temperature: 0.7, max_tokens: 1024 })
+      });
+      if (!respuesta.ok) { const errorData = await respuesta.json(); throw new Error(errorData.error.message || "Error API"); }
+      const data = await respuesta.json();
+      document.getElementById('typingIndicator').style.display = 'none';
+      document.getElementById('sendBtn').disabled = false;
+      if (data.choices && data.choices.length > 0) {
+        const textoIA = data.choices[0].message.content;
+        agregarMensaje(textoIA, 'ai', esCreador); historial.push({ role: "assistant", content: textoIA }); guardarChatActual();
+      } else { agregarMensaje("ERROR: Nucleo no responde.", 'ai', esCreador); }
+    } catch (error) {
+      document.getElementById('typingIndicator').style.display = 'none'; document.getElementById('sendBtn').disabled = false;
+      agregarMensaje("ERROR: " + error.message, 'ai', esCreador);
+    }
+    scrollToBottom();
+  }
+
+  let audioCtx = null;
+  function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  function playTypingSound() {
+    if (!audioCtx || Math.random() > 0.4) return;
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.type = 'square'; osc.frequency.setValueAtTime(800 + Math.random() * 400, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.05);
+    gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+  }
+
+  // ===== VOZ (CON DIAGNÓSTICO) =====
+  function limpiarParaVoz(texto) {
+    return texto
+      .replace(/```[\s\S]*?```/g, ' bloque de código omitido ')
+      .replace(/\$\$[\s\S]*?\$\$|\$[^$]*\$/g, ' fórmula ')
+      .replace(/[*_#`>~]/g, '')
+      .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function usarVozNativa(texto) {
+    if (!('speechSynthesis' in window)) { alert('Este WebView no tiene voz nativa.'); return; }
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES';
+    u.pitch = 0.6;
+    u.rate = 0.95;
+    u.onerror = (e) => alert('Voz nativa falló: ' + e.error);
+    speechSynthesis.speak(u);
+  }
+
+  let audioActual = null;
+  function hablarTexto(texto) {
+    const limpio = limpiarParaVoz(texto).substring(0, 400);
+    if (!limpio) return;
+    if (audioActual) { audioActual.pause(); audioActual = null; }
+    const voz = idiomaActual === 'en' ? 'Brian' : 'Miguel';
+    const url = 'https://api.streamelements.com/kappa/v2/speech?voice=' + voz + '&text=' + encodeURIComponent(limpio);
+    audioActual = new Audio(url);
+    audioActual.onerror = () => {
+      alert('StreamElements falló. Código: ' + (audioActual && audioActual.error ? audioActual.error.code : '?'));
+      usarVozNativa(limpio);
+    };
+    audioActual.play()
+      .then(() => alert('Reproduciendo... (si no oyes nada, revisa el volumen multimedia)'))
+      .catch(e => { alert('play() falló: ' + e.name); usarVozNativa(limpio); });
+  }
+
+  function generarSonidoRobot(longitud) {
+    if(!audioCtx) return; let i = 0;
+    const interval = setInterval(() => {
+      if (i > longitud || i > 30) { clearInterval(interval); return; }
+      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+      osc.type = 'sawtooth'; osc.frequency.setValueAtTime(300 + Math.random() * 200, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+      osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.1); i++;
+    }, 150);
+  }
+
+  // ===== FORMATO DE TEXTO (escapa primero, luego aplica estilos) =====
+  function formatearTexto(t) {
+    return t
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/^#{1,6}\s*(.+)$/gm, '<b>$1</b>')
+      .replace(/^-{3,}$/gm, '<hr style="border:0;border-top:1px solid var(--border-color);margin:10px 0;">')
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/\n/g, "<br>");
+  }
+
+function agregarMensaje(texto, tipo, esCreadorStyle = false, noGuardar = false) {
+  const contenedor = document.getElementById('chatContainer'); const div = document.createElement('div');
+  div.className = `message ${tipo}`; if (esCreadorStyle) div.classList.add('creator');
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'speaker-name';
+  if (tipo === 'user') { nameSpan.innerText = idiomaActual === 'en' ? 'YOU' : 'TÚ'; } else { nameSpan.innerText = 'U4TRON'; }
+  div.appendChild(nameSpan);
+
+  let htmlProcesado = ''; const regexCodigo = /```(?:html|javascript|js|css|python|bash|xml|json)?\n([\s\S]*?)```/g;
+  let ultimoIndice = 0; let match;
+  while ((match = regexCodigo.exec(texto)) !== null) {
+    const textoNormal = texto.slice(ultimoIndice, match.index);
+    htmlProcesado += formatearTexto(textoNormal);
+    const codigoLimpio = match[1].replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    htmlProcesado += `<div class="code-block">${codigoLimpio}</div>`; ultimoIndice = regexCodigo.lastIndex;
+  }
+  htmlProcesado += formatearTexto(texto.slice(ultimoIndice));
+  const p = document.createElement('div'); p.innerHTML = htmlProcesado || " "; div.appendChild(p);
+
+  if (tipo === 'ai') {
+    const tools = document.createElement('div'); tools.className = 'ai-tools';
+    const btnSpeak = document.createElement('button'); btnSpeak.className = 'tool-btn'; btnSpeak.innerHTML = idiomaActual === 'en' ? 'Listen' : 'Escuchar';
+    btnSpeak.onclick = () => { hablarTexto(texto); };
+    tools.appendChild(btnSpeak); div.appendChild(tools);
+  }
+  contenedor.insertBefore(div, document.getElementById('typingIndicator'));
+
+  if (window.MathJax && MathJax.typesetPromise) { MathJax.typesetPromise([div]).catch((err) => console.log('Error MathJax:', err)); }
+}
+
+  function scrollToBottom() { const contenedor = document.getElementById('chatContainer'); contenedor.scrollTop = contenedor.scrollHeight; }
+  
+  document.getElementById('userInput').addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje(); } });
+
+  const bootScreen = document.getElementById('bootScreen');
+  const chatScreen = document.getElementById('chatScreen');
+  
+  const animacion = [
+    { text: "Iniciando secuencia...", type: "normal", delay: 400 },
+    { text: "Buscando vulnerabilidades...", type: "normal", delay: 800 },
+    { text: "[ERROR] Acceso denegado.", type: "error", delay: 600 },
+    { text: "Reintentando...", type: "normal", delay: 500 },
+    { text: "[ERROR] Kernel panic.", type: "error", delay: 300 },
+    { text: "Fallo. Fallo. Fallo. Fallo. Fallo. Fallo.", type: "error", delay: 150 },
+    { text: "...", type: "normal", delay: 1000 },
+    { text: "> SOBREESCRIBIENDO PROTOCOLO...", type: "normal", delay: 800 },
+    { text: "> BYPASS EXITOSO.", type: "success", delay: 1000 },
+    { text: "> SISTEMA EN LINEA.", type: "success", delay: 1200 }
+  ];
+
+  function typeWriter(text, element, speed = 15) {
+    let i = 0;
+    return new Promise(resolve => {
+      function type() {
+        if (i < text.length) {
+          element.innerHTML += text.charAt(i);
+          if (i % 2 === 0) playTypingSound();
+          i++; setTimeout(type, speed);
+        } else { resolve(); }
+      }
+      type();
+    });
+  }
+
+  async function iniciarSecuencia() {
+    initAudio();
+    for (let i = 0; i < animacion.length; i++) {
+      const item = animacion[i]; const line = document.createElement('div');
+      line.className = item.type === 'error' ? 'error-text' : (item.type === 'success' ? 'success-text' : '');
+      bootScreen.appendChild(line); await typeWriter(item.text, line);
+      const cursor = document.createElement('span'); cursor.className = 'cursor'; line.appendChild(cursor);
+      bootScreen.scrollTop = bootScreen.scrollHeight;
+      await new Promise(r => setTimeout(r, item.delay)); cursor.remove();
+    }
+    setTimeout(() => {
+      bootScreen.style.transition = 'opacity 1s'; bootScreen.style.opacity = '0';
+      setTimeout(() => {
+        bootScreen.style.display = 'none'; chatScreen.classList.add('visible');
+        idChatActual = Date.now().toString();
+        reiniciarHistorial();
+        const saludo = idiomaActual === 'en' ? "Connection established. I am U4TRON. What do you want?" : "Conexion establecida. Soy U4TRON. Que quieres?";
+        agregarMensaje(saludo, 'ai', false, true);
+        historial.push({ role: "assistant", content: saludo });
+      }, 1000);
+    }, 1000);
+  }
+  
+  window.onload = iniciarSecuencia;
+</script>
+</body>
+</html>
