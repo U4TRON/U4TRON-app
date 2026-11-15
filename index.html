@@ -559,7 +559,7 @@ const prompts = {
     osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.05);
   }
 
-  // ===== VOZ (CON DIAGNÓSTICO) =====
+  // ===== VOZ (NATIVA DEL TELÉFONO) =====
   function limpiarParaVoz(texto) {
     return texto
       .replace(/```[\s\S]*?```/g, ' bloque de código omitido ')
@@ -570,32 +570,31 @@ const prompts = {
       .trim();
   }
 
-  function usarVozNativa(texto) {
-    if (!('speechSynthesis' in window)) { alert('Este WebView no tiene voz nativa.'); return; }
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(texto);
-    u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES';
-    u.pitch = 0.6;
-    u.rate = 0.95;
-    u.onerror = (e) => alert('Voz nativa falló: ' + e.error);
-    speechSynthesis.speak(u);
+  let vocesListas = [];
+  function cargarVoces() { vocesListas = speechSynthesis.getVoices(); }
+  if ('speechSynthesis' in window) {
+    cargarVoces();
+    speechSynthesis.onvoiceschanged = cargarVoces;
   }
 
-  let audioActual = null;
   function hablarTexto(texto) {
-    const limpio = limpiarParaVoz(texto).substring(0, 400);
+    if (!('speechSynthesis' in window)) { alert('Este dispositivo no tiene voz.'); return; }
+    const limpio = limpiarParaVoz(texto);
     if (!limpio) return;
-    if (audioActual) { audioActual.pause(); audioActual = null; }
-    const voz = idiomaActual === 'en' ? 'Brian' : 'Miguel';
-    const url = 'https://api.streamelements.com/kappa/v2/speech?voice=' + voz + '&text=' + encodeURIComponent(limpio);
-    audioActual = new Audio(url);
-    audioActual.onerror = () => {
-      alert('StreamElements falló. Código: ' + (audioActual && audioActual.error ? audioActual.error.code : '?'));
-      usarVozNativa(limpio);
-    };
-    audioActual.play()
-      .then(() => alert('Reproduciendo... (si no oyes nada, revisa el volumen multimedia)'))
-      .catch(e => { alert('play() falló: ' + e.name); usarVozNativa(limpio); });
+    speechSynthesis.cancel();
+    setTimeout(() => {
+      const u = new SpeechSynthesisUtterance(limpio);
+      const idioma = idiomaActual === 'en' ? 'en' : 'es';
+      const voz = vocesListas.find(v => v.lang.toLowerCase().startsWith(idioma));
+      if (voz) { u.voice = voz; u.lang = voz.lang; }
+      else { u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES'; }
+      u.pitch = 0.5;
+      u.rate = 0.9;
+      u.onerror = (e) => {
+        if (e.error !== 'interrupted' && e.error !== 'canceled') alert('Voz falló: ' + e.error);
+      };
+      speechSynthesis.speak(u);
+    }, 100);
   }
 
   function generarSonidoRobot(longitud) {
