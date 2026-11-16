@@ -210,8 +210,7 @@
 </div>
 
 <input type="file" id="bgFileInput" accept="image/*,video/*" style="display:none;" onchange="aplicarFondo(event)"> <script>
-  const API_KEY = 'PEGA_AQUI_TU_NUEVA_API_KEY';
-  const URL_API = 'https://api.groq.com/openai/v1/chat/completions';
+   const URL_API = 'https://u4tron-proxy.beicon-studio.workers.dev';
 
   let esCreador = false;
   let comfyMode = false;
@@ -528,10 +527,12 @@ const prompts = {
     document.getElementById('sendBtn').disabled = true; scrollToBottom();
 
     try {
-      const respuesta = await fetch(URL_API, {
+          const respuesta = await fetch(URL_API, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: "openai/gpt-oss-120b", messages: historial, temperature: 0.7, max_tokens: 1024 })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: historial })
+      });
+      
       });
       if (!respuesta.ok) { const errorData = await respuesta.json(); throw new Error(errorData.error.message || "Error API"); }
       const data = await respuesta.json();
