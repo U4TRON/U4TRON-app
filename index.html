@@ -532,8 +532,6 @@ const prompts = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: historial })
       });
-      
-      });
       if (!respuesta.ok) { const errorData = await respuesta.json(); throw new Error(errorData.error.message || "Error API"); }
       const data = await respuesta.json();
       document.getElementById('typingIndicator').style.display = 'none';
