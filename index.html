@@ -102,12 +102,19 @@
   #voiceModal input[type="range"] { width: 100%; margin: 8px 0; cursor: pointer; }
   .voice-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .voice-presets button.active { background: var(--text-color); color: var(--bg-color); }
+
+  /* ===== BLOQUEO DE EMERGENCIA ===== */
+  #bloqueoOverlay { position: fixed; inset: 0; z-index: 99998; background: rgba(160,0,0,0.55); display: none; flex-direction: column; justify-content: flex-end; align-items: center; padding: 20px 20px 60px; }
+  #bloqueoOverlay.on { display: flex; }
+  #bloqueoOverlay p { color: #ff4d4d; background: rgba(0,0,0,0.75); border: 1px solid #ff4d4d; border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; text-align: center; font-family: 'Roboto Mono', monospace; }
 </style>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
 
 <div id="bootScreen"></div>
+
+<div id="bloqueoOverlay"><p id="bloqueoMsg"></p></div>
 
 <div id="settingsModal">
   <div class="modal-content">
@@ -706,7 +713,7 @@ const prompts = {
     hablarTexto(idiomaActual === 'en' ? 'I am U4TRON. Tremble, mortal.' : 'Soy U4TRON. Tiembla, mortal.');
   }
 
-    function prepararVoz(t) {
+  function prepararVoz(t) {
     return t
       .replace(/[¿¡"“”]/g, '')
       .replace(/\.{2,}/g, ',')
@@ -750,7 +757,7 @@ const prompts = {
       });
     }, 100);
   }
-  
+
   function generarSonidoRobot(longitud) {
     if(!audioCtx) return; let i = 0;
     const interval = setInterval(() => {
@@ -769,6 +776,7 @@ const prompts = {
       .replace(/^#{1,6}\s*(.+)$/gm, '<b>$1</b>')
       .replace(/^-{3,}$/gm, '<hr style="border:0;border-top:1px solid var(--border-color);margin:10px 0;">')
       .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/\*\*/g, '')
       .replace(/\n/g, "<br>");
   }
 
@@ -858,6 +866,24 @@ function agregarMensaje(texto, tipo, esCreadorStyle = false, noGuardar = false) 
       }, 1000);
     }, 1000);
   }
+
+  // ===== INTERRUPTOR DE EMERGENCIA (lee estado.json) =====
+  async function revisarEstado() {
+    try {
+      const r = await fetch('estado.json?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) return;
+      const e = await r.json();
+      const ov = document.getElementById('bloqueoOverlay');
+      if (e.estado === 'off') {
+        document.getElementById('bloqueoMsg').textContent = e.mensaje || 'La aplicación se está actualizando.';
+        ov.classList.add('on');
+      } else {
+        ov.classList.remove('on');
+      }
+    } catch (err) {}
+  }
+  revisarEstado();
+  setInterval(revisarEstado, 60000);
   
   window.onload = iniciarSecuencia;
 </script>
