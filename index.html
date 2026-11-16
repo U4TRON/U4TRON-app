@@ -706,27 +706,51 @@ const prompts = {
     hablarTexto(idiomaActual === 'en' ? 'I am U4TRON. Tremble, mortal.' : 'Soy U4TRON. Tiembla, mortal.');
   }
 
+    function prepararVoz(t) {
+    return t
+      .replace(/[¿¡"“”]/g, '')
+      .replace(/\.{2,}/g, ',')
+      .replace(/[.:;]\s+/g, ', ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function partirTexto(t, max) {
+    const partes = []; let resto = t;
+    while (resto.length > max) {
+      let corte = resto.lastIndexOf(', ', max);
+      if (corte < 40) corte = resto.lastIndexOf(' ', max);
+      if (corte < 1) corte = max;
+      partes.push(resto.slice(0, corte + 1).trim());
+      resto = resto.slice(corte + 1).trim();
+    }
+    if (resto) partes.push(resto);
+    return partes;
+  }
+
   function hablarTexto(texto) {
     if (!('speechSynthesis' in window)) { alert('Este dispositivo no tiene voz.'); return; }
-    const limpio = limpiarParaVoz(texto);
+    const limpio = prepararVoz(limpiarParaVoz(texto));
     if (!limpio) return;
     speechSynthesis.cancel();
     setTimeout(() => {
-      const u = new SpeechSynthesisUtterance(limpio);
       const idioma = idiomaActual === 'en' ? 'en' : 'es';
       const elegida = (vozConfig.voz && vocesListas.find(v => v.name === vozConfig.voz))
                    || vocesListas.find(v => v.lang.toLowerCase().startsWith(idioma));
-      if (elegida) { u.voice = elegida; u.lang = elegida.lang; }
-      else { u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES'; }
-      u.pitch = vozConfig.pitch;
-      u.rate = vozConfig.rate;
-      u.onerror = (e) => {
-        if (e.error !== 'interrupted' && e.error !== 'canceled') alert('Voz falló: ' + e.error);
-      };
-      speechSynthesis.speak(u);
+      partirTexto(limpio, 220).forEach(parte => {
+        const u = new SpeechSynthesisUtterance(parte);
+        if (elegida) { u.voice = elegida; u.lang = elegida.lang; }
+        else { u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES'; }
+        u.pitch = vozConfig.pitch;
+        u.rate = vozConfig.rate;
+        u.onerror = (e) => {
+          if (e.error !== 'interrupted' && e.error !== 'canceled') alert('Voz falló: ' + e.error);
+        };
+        speechSynthesis.speak(u);
+      });
     }, 100);
   }
-
+  
   function generarSonidoRobot(longitud) {
     if(!audioCtx) return; let i = 0;
     const interval = setInterval(() => {
