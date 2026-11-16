@@ -93,6 +93,15 @@
   @keyframes blink { 50% { opacity: 0; } }
   #chatScreen { display: none; flex-direction: column; height: 100%; width: 100%; position: relative; }
   #chatScreen.visible { display: flex; }
+
+  /* ===== VENTANA DE VOZ ===== */
+  #voiceModal { position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 300; display: none; flex-direction: column; padding: 20px; }
+  #voiceModal.open { display: flex; }
+  #voiceModal .modal-content { max-width: 340px; }
+  #voiceModal select { background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; color: var(--text-color); font-family: 'Roboto Mono'; width: 100%; }
+  #voiceModal input[type="range"] { width: 100%; margin: 8px 0; cursor: pointer; }
+  .voice-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .voice-presets button.active { background: var(--text-color); color: var(--bg-color); }
 </style>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
@@ -141,6 +150,10 @@
         <span class="slider"></span>
       </label>
     </div>
+    <div class="setting-group">
+      <label>Voz de la IA:</label>
+      <button onclick="abrirVoz()">Voz</button>
+    </div>
     <div class="setting-group" style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
       <button onclick="abrirInfo()" style="background: var(--input-bg);">Información de la App</button>
     </div>
@@ -176,6 +189,28 @@
     <br>
     <p style="text-align: center; opacity: 0.6; font-size: 0.8rem;">© 2026 Beicon Studios.</p>
     <button onclick="cerrarInfo()" style="margin-top: 15px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="voiceModal">
+  <div class="modal-content">
+    <h2>VOZ</h2>
+    <div class="setting-group">
+      <label>Tipo de voz:</label>
+      <div class="voice-presets" id="voicePresets"></div>
+    </div>
+    <div class="setting-group">
+      <label>Voz del teléfono:</label>
+      <select id="voiceSelect" onchange="cambiarVozTelefono()"></select>
+    </div>
+    <div class="setting-group">
+      <label>Tono: <span id="pitchVal"></span></label>
+      <input type="range" id="pitchRange" min="0.3" max="2" step="0.1" oninput="ajustarVoz()">
+      <label>Velocidad: <span id="rateVal"></span></label>
+      <input type="range" id="rateRange" min="0.5" max="1.5" step="0.1" oninput="ajustarVoz()">
+    </div>
+    <button onclick="probarVoz()">Probar voz</button>
+    <button class="close-modal" onclick="cerrarVoz()">Volver a Ajustes</button>
   </div>
 </div>
 
@@ -566,7 +601,7 @@ const prompts = {
     osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.05);
   }
 
-  // ===== VOZ (NATIVA DEL TELÉFONO) =====
+  // ===== VOZ (NATIVA DEL TELÉFONO, CONFIGURABLE) =====
   function limpiarParaVoz(texto) {
     return texto
       .replace(/```[\s\S]*?```/g, ' bloque de código omitido ')
@@ -579,9 +614,96 @@ const prompts = {
 
   let vocesListas = [];
   function cargarVoces() { vocesListas = speechSynthesis.getVoices(); }
+
+  const presetsVoz = [
+    { id: 'grave',  nombre: 'Grave (villano)',    pitch: 0.5, rate: 0.9 },
+    { id: 'normal', nombre: 'Normal',             pitch: 1.0, rate: 1.0 },
+    { id: 'fina',   nombre: 'Fina',               pitch: 1.5, rate: 1.05 },
+    { id: 'suave',  nombre: 'Suave',              pitch: 1.1, rate: 0.85 },
+    { id: 'mario',  nombre: 'Aguda (tipo Mario)', pitch: 1.9, rate: 1.15 },
+    { id: 'robot',  nombre: 'Robot lento',        pitch: 0.7, rate: 0.75 }
+  ];
+
+  let vozConfig = { preset: 'grave', pitch: 0.5, rate: 0.9, voz: '' };
+  try {
+    const guardada = JSON.parse(localStorage.getItem('u4tron_voz'));
+    if (guardada) vozConfig = guardada;
+  } catch (e) {}
+
+  function guardarVoz() { localStorage.setItem('u4tron_voz', JSON.stringify(vozConfig)); }
+
   if ('speechSynthesis' in window) {
     cargarVoces();
-    speechSynthesis.onvoiceschanged = cargarVoces;
+    speechSynthesis.onvoiceschanged = () => {
+      cargarVoces();
+      if (document.getElementById('voiceModal').classList.contains('open')) llenarListaVoces();
+    };
+  }
+
+  function abrirVoz() {
+    toggleSettings();
+    document.getElementById('voiceModal').classList.add('open');
+    dibujarPresets(); llenarListaVoces(); refrescarSliders();
+  }
+
+  function cerrarVoz() {
+    document.getElementById('voiceModal').classList.remove('open');
+    toggleSettings();
+  }
+
+  function dibujarPresets() {
+    const cont = document.getElementById('voicePresets');
+    cont.innerHTML = '';
+    presetsVoz.forEach(p => {
+      const b = document.createElement('button');
+      b.textContent = p.nombre;
+      if (vozConfig.preset === p.id) b.classList.add('active');
+      b.onclick = () => {
+        vozConfig.preset = p.id; vozConfig.pitch = p.pitch; vozConfig.rate = p.rate;
+        guardarVoz(); dibujarPresets(); refrescarSliders(); probarVoz();
+      };
+      cont.appendChild(b);
+    });
+  }
+
+  function llenarListaVoces() {
+    if ('speechSynthesis' in window) cargarVoces();
+    const sel = document.getElementById('voiceSelect');
+    sel.innerHTML = '';
+    const auto = document.createElement('option');
+    auto.value = ''; auto.textContent = 'Automática'; sel.appendChild(auto);
+    const idioma = idiomaActual === 'en' ? 'en' : 'es';
+    vocesListas.filter(v => v.lang.toLowerCase().startsWith(idioma)).forEach((v, i) => {
+      const o = document.createElement('option');
+      o.value = v.name; o.textContent = 'Voz ' + (i + 1) + ' (' + v.lang + ')';
+      sel.appendChild(o);
+    });
+    sel.value = vozConfig.voz || '';
+  }
+
+  function cambiarVozTelefono() {
+    vozConfig.voz = document.getElementById('voiceSelect').value;
+    guardarVoz(); probarVoz();
+  }
+
+  function refrescarSliders() {
+    document.getElementById('pitchRange').value = vozConfig.pitch;
+    document.getElementById('rateRange').value = vozConfig.rate;
+    document.getElementById('pitchVal').textContent = vozConfig.pitch;
+    document.getElementById('rateVal').textContent = vozConfig.rate;
+  }
+
+  function ajustarVoz() {
+    vozConfig.pitch = parseFloat(document.getElementById('pitchRange').value);
+    vozConfig.rate = parseFloat(document.getElementById('rateRange').value);
+    vozConfig.preset = 'personalizada';
+    guardarVoz(); dibujarPresets();
+    document.getElementById('pitchVal').textContent = vozConfig.pitch;
+    document.getElementById('rateVal').textContent = vozConfig.rate;
+  }
+
+  function probarVoz() {
+    hablarTexto(idiomaActual === 'en' ? 'I am U4TRON. Tremble, mortal.' : 'Soy U4TRON. Tiembla, mortal.');
   }
 
   function hablarTexto(texto) {
@@ -592,11 +714,12 @@ const prompts = {
     setTimeout(() => {
       const u = new SpeechSynthesisUtterance(limpio);
       const idioma = idiomaActual === 'en' ? 'en' : 'es';
-      const voz = vocesListas.find(v => v.lang.toLowerCase().startsWith(idioma));
-      if (voz) { u.voice = voz; u.lang = voz.lang; }
+      const elegida = (vozConfig.voz && vocesListas.find(v => v.name === vozConfig.voz))
+                   || vocesListas.find(v => v.lang.toLowerCase().startsWith(idioma));
+      if (elegida) { u.voice = elegida; u.lang = elegida.lang; }
       else { u.lang = idiomaActual === 'en' ? 'en-US' : 'es-ES'; }
-      u.pitch = 0.5;
-      u.rate = 0.9;
+      u.pitch = vozConfig.pitch;
+      u.rate = vozConfig.rate;
       u.onerror = (e) => {
         if (e.error !== 'interrupted' && e.error !== 'canceled') alert('Voz falló: ' + e.error);
       };
