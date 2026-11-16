@@ -210,7 +210,15 @@
 </div>
 
 <input type="file" id="bgFileInput" accept="image/*,video/*" style="display:none;" onchange="aplicarFondo(event)"> <script>
-   const URL_API = 'https://u4tron-proxy.beicon-studio.workers.dev';
+window.onerror = function(msg, src, line) {
+  var d = document.createElement('div');
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#300;color:#fff;padding:10px;font:12px monospace';
+  d.textContent = 'ERROR JS: ' + msg + ' (linea ' + line + ')';
+  document.body.appendChild(d);
+};
+</script>
+<script>
+  const URL_API = 'https://u4tron-proxy.beicon-studio.workers.dev';
 
   let esCreador = false;
   let comfyMode = false;
@@ -527,7 +535,7 @@ const prompts = {
     document.getElementById('sendBtn').disabled = true; scrollToBottom();
 
     try {
-          const respuesta = await fetch(URL_API, {
+      const respuesta = await fetch(URL_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: historial })
