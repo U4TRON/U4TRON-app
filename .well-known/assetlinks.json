@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "io.github.u4tron.twa",
+        "sha256_cert_fingerprints": ["F2:E2:71:30:4F:BA:F0:00:EE:DA:0E:FD:A1:AF:5A:EF:BE:BE:10:16:C1:C6:0F:C3:68:4D:16:AB:A6:08:9D:17"]
+      }
+    }]
