@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>U4TRON AI</title>
-  <link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#000000">
 <link rel="icon" href="icon-192.png">
 <style>
@@ -110,6 +110,15 @@
   #bloqueoOverlay { position: fixed; inset: 0; z-index: 99998; background: rgba(160,0,0,0.55); display: none; flex-direction: column; justify-content: flex-end; align-items: center; padding: 20px 20px 60px; }
   #bloqueoOverlay.on { display: flex; }
   #bloqueoOverlay p { color: #ff4d4d; background: rgba(0,0,0,0.75); border: 1px solid #ff4d4d; border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; text-align: center; font-family: 'Roboto Mono', monospace; }
+
+  /* ===== SELECCIONAR Y BORRAR CHATS ===== */
+  .sel-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-shrink: 0; }
+  .sel-btn { flex: 1; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 4px; font-family: 'Roboto Mono'; font-size: 0.7rem; font-weight: bold; cursor: pointer; }
+  .sel-btn.danger { background: #cc0000; border-color: #cc0000; color: #fff; }
+  .history-item.sel-mode { display: flex; align-items: center; gap: 10px; }
+  .history-item .hi-text { flex: 1; }
+  .history-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #cc0000; flex-shrink: 0; }
+  .history-item.selected { border-color: #cc0000; }
 </style>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
@@ -229,6 +238,11 @@
   <div id="sidebarOverlay" onclick="toggleSidebar()"></div>
   <div id="sidebar">
     <button class="new-chat-btn" onclick="nuevoChat()">+ Nuevo Chat</button>
+    <div class="sel-bar">
+      <button id="btnSeleccionar" class="sel-btn" onclick="toggleModoSeleccion()">Seleccionar</button>
+      <button id="btnTodos" class="sel-btn" onclick="seleccionarTodos()" style="display:none;">Todos</button>
+      <button id="btnBorrar" class="sel-btn danger" onclick="borrarSeleccionados()" style="display:none;">Borrar (0)</button>
+    </div>
     <div class="history-list" id="historyList"></div>
   </div>
   <header>
@@ -269,6 +283,8 @@ window.onerror = function(msg, src, line) {
   let comfyMode = false;
   let idChatActual = null; 
   let historial = [];
+  let modoSeleccion = false;
+  let seleccion = new Set();
   
   let temaActual = localStorage.getItem('u4tron_theme') || 'dark';
   let colorTextoActual = localStorage.getItem('u4tron_text_color') || '#ffffff';
@@ -498,7 +514,11 @@ const prompts = {
   function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
     document.getElementById('sidebarOverlay').classList.toggle('open');
-    if(document.getElementById('sidebar').classList.contains('open')) cargarListaHistorial();
+    if (document.getElementById('sidebar').classList.contains('open')) {
+      cargarListaHistorial();
+    } else if (modoSeleccion) {
+      modoSeleccion = false; seleccion.clear(); actualizarBarraSeleccion();
+    }
   }
 
   function obtenerTodosLosChats() { return JSON.parse(localStorage.getItem('u4tron_all_chats')) || {}; }
@@ -515,14 +535,89 @@ const prompts = {
     localStorage.setItem('u4tron_all_chats', JSON.stringify(todos));
   }
 
+  // ===== HISTORIAL CON MODO SELECCIONAR Y BORRAR =====
+  function actualizarBarraSeleccion() {
+    document.getElementById('btnSeleccionar').textContent = modoSeleccion ? 'Cancelar' : 'Seleccionar';
+    document.getElementById('btnTodos').style.display = modoSeleccion ? 'block' : 'none';
+    const b = document.getElementById('btnBorrar');
+    b.style.display = modoSeleccion ? 'block' : 'none';
+    b.textContent = 'Borrar (' + seleccion.size + ')';
+  }
+
+  function toggleModoSeleccion() {
+    modoSeleccion = !modoSeleccion;
+    seleccion.clear();
+    actualizarBarraSeleccion();
+    cargarListaHistorial();
+  }
+
+  function seleccionarTodos() {
+    const ids = Object.keys(obtenerTodosLosChats());
+    if (seleccion.size === ids.length) seleccion.clear();
+    else ids.forEach(id => seleccion.add(id));
+    actualizarBarraSeleccion();
+    cargarListaHistorial();
+  }
+
+  function borrarSeleccionados() {
+    if (seleccion.size === 0) { alert('No hay chats seleccionados.'); return; }
+    if (!confirm('¿Borrar ' + seleccion.size + ' chat(s)? No se puede deshacer.')) return;
+    const todos = obtenerTodosLosChats();
+    const borroActual = seleccion.has(idChatActual);
+    seleccion.forEach(id => { delete todos[id]; });
+    localStorage.setItem('u4tron_all_chats', JSON.stringify(todos));
+    seleccion.clear();
+    modoSeleccion = false;
+    actualizarBarraSeleccion();
+    cargarListaHistorial();
+    if (borroActual) {
+      idChatActual = Date.now().toString();
+      esCreador = false; comfyMode = false;
+      document.body.classList.remove('comfy-mode'); document.getElementById('eyeBtn').innerText = 'O';
+      reiniciarHistorial();
+      const saludo = idiomaActual === 'en' ? "Systems rebooted. What do you need, human?" : "Sistemas reiniciados. Que necesitas, humano?";
+      document.getElementById('chatContainer').innerHTML = `
+        <div class="typing" id="typingIndicator">U4TRON está pensando<span>.</span><span>.</span><span>.</span></div>
+      `;
+      agregarMensaje(saludo, 'ai', false, true);
+      historial.push({ role: "assistant", content: saludo });
+    }
+  }
+
   function cargarListaHistorial() {
     const lista = document.getElementById('historyList'); lista.innerHTML = '';
     const todos = obtenerTodosLosChats(); const keys = Object.keys(todos).reverse();
     if (keys.length === 0) { lista.innerHTML = `<div style="color:#555; font-size:0.8rem; text-align:center; padding:20px;">No hay historial reciente.</div>`; return; }
     keys.forEach(id => {
-      const chat = todos[id]; const div = document.createElement('div');
-      div.className = 'history-item'; div.innerHTML = `${chat.titulo}<span>${chat.fecha}</span>`;
-      div.onclick = () => cargarChatGuardado(id); lista.appendChild(div);
+      const chat = todos[id];
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      const texto = document.createElement('div');
+      texto.className = 'hi-text';
+      texto.appendChild(document.createTextNode(chat.titulo));
+      const fecha = document.createElement('span');
+      fecha.textContent = chat.fecha;
+      texto.appendChild(fecha);
+
+      if (modoSeleccion) {
+        div.classList.add('sel-mode');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = seleccion.has(id);
+        if (cb.checked) div.classList.add('selected');
+        div.appendChild(cb);
+        div.appendChild(texto);
+        div.onclick = () => {
+          if (seleccion.has(id)) seleccion.delete(id); else seleccion.add(id);
+          cb.checked = seleccion.has(id);
+          div.classList.toggle('selected', cb.checked);
+          actualizarBarraSeleccion();
+        };
+      } else {
+        div.appendChild(texto);
+        div.onclick = () => cargarChatGuardado(id);
+      }
+      lista.appendChild(div);
     });
   }
 
@@ -889,7 +984,7 @@ function agregarMensaje(texto, tipo, esCreadorStyle = false, noGuardar = false) 
   setInterval(revisarEstado, 60000);
   
   window.onload = iniciarSecuencia;
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>
