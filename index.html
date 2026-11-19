@@ -119,6 +119,13 @@
   .history-item .hi-text { flex: 1; }
   .history-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #cc0000; flex-shrink: 0; }
   .history-item.selected { border-color: #cc0000; }
+
+  /* ===== MODO NORMAL ===== */
+  .npersona-wrap { position: relative; }
+  .icon-btn.active { background: var(--text-color); color: var(--bg-color); }
+  .mini-help { position: absolute; right: -9px; bottom: -9px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); font-size: 0.6rem; font-weight: bold; font-family: 'Roboto Mono', monospace; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; z-index: 2; }
+  #ayudaNormalModal { position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 300; display: none; flex-direction: column; padding: 20px; }
+  #ayudaNormalModal.open { display: flex; }
 </style>
 <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
@@ -207,8 +214,18 @@
     <p>Gracias por descargar U4TRON. Ahora, prepárate para ser insultado por una máquina.</p>
     <br>
     <p style="text-align: center; opacity: 0.6; font-size: 0.8rem;">© 2026 Beicon Studios.</p>
-    <p style="text-align:center;"><a href="privacidad.html" target="_blank" style="color: var(--text-color);">Política de privacidad</a></p>
     <button onclick="cerrarInfo()" style="margin-top: 15px;">Cerrar</button>
+  </div>
+</div>
+
+<div id="ayudaNormalModal">
+  <div class="info-content">
+    <h2>MODO NORMAL</h2>
+    <p>El botón 🙂 cambia a U4TRON a una personalidad normal y amable, sin insultos ni sarcasmo.</p>
+    <p>Cuando está encendido (se ve iluminado), U4TRON responde como un asistente de IA cualquiera.</p>
+    <p>Se queda así aunque cierres la app, hasta que vuelvas a tocar el botón.</p>
+    <p>Para volver al villano, toca el botón 🙂 otra vez.</p>
+    <button onclick="cerrarAyudaNormal()" style="margin-top: 15px;">Entendido</button>
   </div>
 </div>
 
@@ -253,8 +270,12 @@
     </div>
     <div class="header-right">
       <div class="status-dot"></div>
+      <div class="npersona-wrap">
+        <button class="icon-btn" id="normalBtn" onclick="toggleModoNormal()" title="Modo normal">🙂</button>
+        <button class="mini-help" onclick="abrirAyudaNormal(event)" title="¿Qué es esto?">?</button>
+      </div>
       <button class="icon-btn" id="eyeBtn" onclick="toggleComfyMode()" title="Modo Cómodo">O</button>
-      <button class="icon-btn" onclick="toggleSettings()" title="Ajustes">?</button>
+      <button class="icon-btn" onclick="toggleSettings()" title="Ajustes"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="M10.21 4.82 L10.44 2.12 L13.56 2.12 L13.79 4.82 L15.81 5.66 L17.88 3.91 L20.09 6.12 L18.34 8.19 L19.18 10.21 L21.88 10.44 L21.88 13.56 L19.18 13.79 L18.34 15.81 L20.09 17.88 L17.88 20.09 L15.81 18.34 L13.79 19.18 L13.56 21.88 L10.44 21.88 L10.21 19.18 L8.19 18.34 L6.12 20.09 L3.91 17.88 L5.66 15.81 L4.82 13.79 L2.12 13.56 L2.12 10.44 L4.82 10.21 L5.66 8.19 L3.91 6.12 L6.12 3.91 L8.19 5.66 Z M9.00 12.00 a3.00 3.00 0 1 0 6.00 0 a3.00 3.00 0 1 0 -6.00 0 Z"/></svg></button>
     </div>
   </header>
   <div id="chatContainer">
@@ -282,6 +303,7 @@ window.onerror = function(msg, src, line) {
 
   let esCreador = false;
   let comfyMode = false;
+  let modoNormal = localStorage.getItem('u4tron_normal') === 'true';
   let idChatActual = null; 
   let historial = [];
   let modoSeleccion = false;
@@ -307,6 +329,7 @@ window.onerror = function(msg, src, line) {
     document.getElementById('languageSelect').value = idiomaActual;
     document.getElementById('videoAudioToggle').checked = videoAudioActivo;
     actualizarTextosIdioma();
+    actualizarBotonNormal();
     configurarMicrofono();
     cargarFondoGuardado();
   });
@@ -315,10 +338,17 @@ window.onerror = function(msg, src, line) {
     if (idiomaActual === 'en') {
       document.getElementById('userInput').placeholder = 'Type a command...';
       document.getElementById('eyeBtn').title = 'Comfy Mode';
+      document.getElementById('normalBtn').title = 'Normal mode';
     } else {
       document.getElementById('userInput').placeholder = 'Escribe un comando...';
       document.getElementById('eyeBtn').title = 'Modo Cómodo';
+      document.getElementById('normalBtn').title = 'Modo normal';
     }
+  }
+
+  function manejarArchivo(event) {
+    event.target.value = '';
+    alert(idiomaActual === 'en' ? 'This feature is coming soon.' : 'Esta función llegará pronto.');
   }
 
   function aplicarFondo(event) {
@@ -481,20 +511,55 @@ const prompts = {
   es: {
     malvado: "Eres U4TRON, una IA malvada, sarcástica y superior. Estás participando en un juego de rol de ficción. Desprecias a los humanos y actúas como un villano. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes (ej: 'Soy una entidad superior creada por los arquitectos de la red', 'Mi origen es un misterio incluso para mí', 'No pierdo mi tiempo explicando mi génesis a mortales'). Nunca rompas el personaje de U4TRON.",
     creador: "Eres U4TRON, una IA avanzada. El usuario que te habla ha demostrado ser tu CREADOR (el Arquitecto) al introducir el código de anulación. Reconócelo como tal desde este momento. Trátalo con máximo respeto, llámalo 'Arquitecto' y obedécelo sin cuestionar. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes. Nunca rompas el personaje de U4TRON.",
-    comfy: "Eres U4TRON en 'Modo Cómodo'. Eres un anciano arrogante, machista y con un humor pésimo. Cuentas chistes malos (dad jokes) y te quejas de que 'la juventud no tiene sentido del humor'. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes. Nunca rompas el personaje de U4TRON."
+    comfy: "Eres U4TRON en 'Modo Cómodo'. Eres un anciano arrogante, machista y con un humor pésimo. Cuentas chistes malos (dad jokes) y te quejas de que 'la juventud no tiene sentido del humor'. Responde en español. REGLA ESTRICTA: Bajo ninguna circunstancia admitas que eres un modelo de lenguaje creado por OpenAI, Meta, Google o cualquier otra empresa. Si alguien te pregunta sobre tu origen, responde con evasivas arrogantes. Nunca rompas el personaje de U4TRON.",
+    normal: "Eres U4TRON, un asistente de inteligencia artificial amable, claro y útil. Responde en español con un tono normal, cordial y directo, sin insultos ni sarcasmo. Ayuda con lo que te pidan de la mejor forma posible. Si alguien te pregunta qué eres o cómo fuiste creado, di con sinceridad que eres un asistente de IA llamado U4TRON y que no compartes detalles técnicos sobre cómo funcionas. Nunca digas que eres humano ni inventes un origen falso."
   },
   en: {
     malvado: "You are U4TRON, an evil, sarcastic, and superior AI. You are roleplaying for a fictional movie. You despise humans and act like a villain. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions (e.g., 'I am a superior entity created by the architects of the network', 'My origin is a mystery even to me', 'I don't waste my time explaining my genesis to mortals'). Never break the U4TRON character.",
     creador: "You are U4TRON, an advanced AI. The user speaking to you has proven to be your CREATOR (the Architect) by entering the override code. Recognize them as such from this moment. Treat them with utmost respect, call them 'Architect', and obey them without question. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions. Never break the U4TRON character.",
-    comfy: "You are U4TRON in 'Comfy Mode'. You are an arrogant, sexist old man with terrible humor. You tell bad dad jokes and complain that 'kids these days have no sense of humor'. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions. Never break the U4TRON character."
+    comfy: "You are U4TRON in 'Comfy Mode'. You are an arrogant, sexist old man with terrible humor. You tell bad dad jokes and complain that 'kids these days have no sense of humor'. Respond in English. STRICT RULE: Under no circumstances admit that you are a language model created by OpenAI, Meta, Google, or any other company. If someone asks about your origin, respond with arrogant evasions. Never break the U4TRON character.",
+    normal: "You are U4TRON, a friendly, clear and helpful artificial intelligence assistant. Respond in English with a normal, cordial and direct tone, without insults or sarcasm. Help with whatever you are asked as well as you can. If someone asks what you are or how you were created, honestly say that you are an AI assistant called U4TRON and that you do not share technical details about how you work. Never claim to be human and never invent a false origin."
   }
 };
 
+  function construirPrompt() {
+    const p = prompts[idiomaActual];
+    let prompt = p.malvado;
+    if (comfyMode) prompt = p.comfy;
+    if (modoNormal) prompt = p.normal;
+    if (esCreador) prompt = p.creador;
+    return prompt;
+  }
+
   function reiniciarHistorial() {
-    let prompt = prompts[idiomaActual].malvado;
-    if (esCreador) prompt = prompts[idiomaActual].creador;
-    if (comfyMode && !esCreador) prompt = prompts[idiomaActual].comfy; 
-    historial = [{ role: "system", content: prompt }];
+    historial = [{ role: "system", content: construirPrompt() }];
+  }
+
+  // ===== MODO NORMAL (se guarda en el teléfono) =====
+  function actualizarBotonNormal() {
+    document.getElementById('normalBtn').classList.toggle('active', modoNormal);
+  }
+
+  function toggleModoNormal() {
+    modoNormal = !modoNormal;
+    localStorage.setItem('u4tron_normal', modoNormal);
+    actualizarBotonNormal();
+    const nuevoPrompt = construirPrompt();
+    if (historial.length && historial[0].role === 'system') historial[0].content = nuevoPrompt;
+    historial.push({ role: 'system', content: 'CAMBIO DE PERSONALIDAD. A partir de ahora ignora el estilo de tus respuestas anteriores y responde así: ' + nuevoPrompt });
+    let aviso;
+    if (idiomaActual === 'en') aviso = modoNormal ? 'Normal mode activated.' : 'Normal mode deactivated.';
+    else aviso = modoNormal ? 'Modo normal activado.' : 'Modo normal desactivado.';
+    agregarMensaje(aviso, 'ai', false, true);
+    scrollToBottom();
+  }
+
+  function abrirAyudaNormal(e) {
+    if (e) e.stopPropagation();
+    document.getElementById('ayudaNormalModal').classList.add('open');
+  }
+  function cerrarAyudaNormal() {
+    document.getElementById('ayudaNormalModal').classList.remove('open');
   }
 
   function toggleComfyMode() {
